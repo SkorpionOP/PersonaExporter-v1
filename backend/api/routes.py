@@ -16,9 +16,9 @@ from services.scenario_engine import extract_scenario_library
 from services.emoji_engine import extract_emojis
 from services.formatting import extract_formatting, compute_hard_constraints
 
-# LLM and Compiler
 from services.llm import infer_behavior_patterns
 from services.prompt_compiler import compile_system_prompt
+from services.evaluation import extract_holdout_set, evaluate_persona
 from pdf.generator import generate_persona_pdf
 
 from pydantic import BaseModel
@@ -42,12 +42,14 @@ async def process_chat_background(upload_id: int, file_path: str, target_person:
         upload.status = "processing"
         db.commit()
 
-        # ── 1. PARSE & CLEAN ──────────────────────────────────────────────────
         parser = get_parser_for_filename(upload.filename)
         with open(file_path, 'rb') as f:
             conversation = parser.parse(f)
             
-        messages = clean_messages(conversation.messages)
+        all_messages = clean_messages(conversation.messages)
+
+        # ── 1.5 EXTRACT HOLDOUT SET ────────────────────────────────────────────
+        messages, holdout_pairs = extract_holdout_set(all_messages, target_person, count=20)
 
         # ── 2. PHASE 1: DETERMINISTIC ENGINES ─────────────────────────────────
         global_stats       = generate_statistics(conversation)
@@ -120,6 +122,9 @@ async def process_chat_background(upload_id: int, file_path: str, target_person:
             communication_signature=communication_signature,
         )
 
+        # ── 4.5 EVALUATION ────────────────────────────────────────────────────
+        evaluation_results = await evaluate_persona(system_prompt["base_prompt"], holdout_pairs)
+
         # ── 5. STORE ──────────────────────────────────────────────────────────
         persona_data = {
             "statistics": global_stats,
@@ -140,6 +145,7 @@ async def process_chat_background(upload_id: int, file_path: str, target_person:
             "topic_graph": topic_graph,
             "scenario_library": scenario_library,
             "system_prompt": system_prompt,
+            "evaluation": evaluation_results,
         }
 
         persona = PersonaModel(
@@ -251,8 +257,20 @@ def download_persona_pack(persona_id: int, db: Session = Depends(get_db)):
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("persona.pdf", pdf_bytes)
         zf.writestr("persona.json", json.dumps(persona_data, indent=2))
-        zf.writestr("system_prompt.txt", persona_data.get("system_prompt", ""))
+        
+        sys_prompt_data = persona_data.get("system_prompt", {})
+        if isinstance(sys_prompt_data, dict):
+            zf.writestr("system_prompt_base.txt", sys_prompt_data.get("base_prompt", ""))
+            zf.writestr("system_prompt_chatgpt.txt", sys_prompt_data.get("chatgpt", ""))
+            zf.writestr("system_prompt_claude.txt", sys_prompt_data.get("claude", ""))
+            zf.writestr("system_prompt_gemini.txt", sys_prompt_data.get("gemini", ""))
+            zf.writestr("full_report.txt", sys_prompt_data.get("full_report", ""))
+        else:
+            zf.writestr("system_prompt.txt", sys_prompt_data)
+            
         zf.writestr("statistics.json", json.dumps(persona_data.get("target_stats", {}), indent=2))
+        if "evaluation" in persona_data:
+            zf.writestr("evaluation_report.json", json.dumps(persona_data.get("evaluation", {}), indent=2))
 
     zip_buffer.seek(0)
     return Response(

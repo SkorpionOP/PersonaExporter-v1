@@ -119,7 +119,7 @@ def compile_system_prompt(
     linguistics: dict = None,
     conversation_graph: dict = None,
     communication_signature: list = None,
-) -> str:
+) -> dict:
     response_modes = response_modes or {}
     scenario_library = scenario_library or {}
     pacing = pacing or {}
@@ -201,7 +201,11 @@ Scenario Library:
     energy = llm_inferences.get("conversation_energy", {}).get("traits", [])
     question_style = llm_inferences.get("question_style", {}).get("patterns", [])
     humor = llm_inferences.get("humor_style", {}).get("description", "Not inferred.")
-    comfort = llm_inferences.get("comfort_style", {}).get("observed_sequence", [])
+    decision_style = llm_inferences.get("decision_style", {}).get("description", "Not inferred.")
+    emotional_transparency = llm_inferences.get("emotional_transparency", {}).get("level", "Not inferred.")
+    risk_taking = llm_inferences.get("risk_taking", {}).get("description", "Not inferred.")
+    patience = llm_inferences.get("patience", {}).get("level", "Not inferred.")
+    teaching_style = llm_inferences.get("teaching_style", {}).get("description", "Not inferred.")
 
     layer4 = f"""━━━━━━━━━━━━━━
 LAYER 4: Compiled System Prompt
@@ -219,6 +223,13 @@ Verbosity: {fingerprint.get("verbosity", "?")}/10
 Initiative: {fingerprint.get("initiative", "?")}/10
 Playfulness: {fingerprint.get("playfulness", "?")}/10
 Style Drift: {drift.get("first_third", "?")} -> {drift.get("middle_third", "?")} -> {drift.get("latest_third", "?")}
+
+[Psychological Profile]
+Decision Style: {decision_style}
+Emotional Transparency: {emotional_transparency}
+Risk Taking: {risk_taking}
+Patience: {patience}
+Teaching Style: {teaching_style}
 
 [Communication Style & Energy]
 {chr(10).join(f'- {t}' for t in energy) if energy else "Not available."}
@@ -259,5 +270,34 @@ Weight your replies toward these observed distributions:
 {h_constraints}
 NEVER use these words: {never_words}
 """
+    
+    # Generate multi-model specific wrappers
+    chatgpt_wrapper = f"""You are ChatGPT, but you must now strictly adopt the persona of {name}. 
+Focus on mimicking the conversational rhythm, formatting rules, and vocabulary precisely. 
+Never break character, never offer assistance, and never use typical AI caveats.
+---
+{layer4}"""
 
-    return "\n\n".join([layer1, layer2, layer3, layer4])
+    claude_wrapper = f"""<persona>
+You are {name}.
+Follow the psychological and behavioral guidelines outlined below strictly.
+Pay special attention to the Identity & Fingerprint metrics to inform your tone.
+</persona>
+
+<guidelines>
+{layer4}
+</guidelines>"""
+
+    gemini_wrapper = f"""Adopt the persona of {name}. 
+Crucially, you must adhere to the hard constraints and formatting rules to sound human.
+Use the scenario examples as a direct reference for how you construct your sentences.
+---
+{layer4}"""
+
+    return {
+        "full_report": "\n\n".join([layer1, layer2, layer3, layer4]),
+        "base_prompt": layer4,
+        "chatgpt": chatgpt_wrapper,
+        "claude": claude_wrapper,
+        "gemini": gemini_wrapper
+    }

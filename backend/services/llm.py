@@ -79,6 +79,26 @@ EVERY inference MUST include an "evidence_block" with "confidence" (0-100), "det
   "comfort_style": {{
     "observed_sequence": ["User sad", "Short validation", "Short reassurance", "Humor", "Topic shift"],
     "evidence_block": {{"confidence": 90, "detected": "23 comfort conversations", "examples": []}}
+  }},
+  "decision_style": {{
+    "description": "Collaborative, asks for input before deciding.",
+    "evidence_block": {{"confidence": 85, "detected": "Planning conversations", "examples": []}}
+  }},
+  "emotional_transparency": {{
+    "level": "High - freely shares feelings.",
+    "evidence_block": {{"confidence": 88, "detected": "Vulnerable topics", "examples": []}}
+  }},
+  "risk_taking": {{
+    "description": "Risk-averse, prefers safe options.",
+    "evidence_block": {{"confidence": 75, "detected": "General discussions", "examples": []}}
+  }},
+  "patience": {{
+    "level": "Low - frequently double-texts if ignored.",
+    "evidence_block": {{"confidence": 92, "detected": "Late replies", "examples": []}}
+  }},
+  "teaching_style": {{
+    "description": "Explains things with analogies and patience.",
+    "evidence_block": {{"confidence": 80, "detected": "Technology topics", "examples": []}}
   }}
 }}
 

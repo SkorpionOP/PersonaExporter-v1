@@ -9,3 +9,5 @@ reportlab
 matplotlib
 python-dateutil
 emoji
+faiss-cpu
+sentence-transformers
