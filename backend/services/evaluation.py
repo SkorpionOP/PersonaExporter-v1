@@ -98,12 +98,12 @@ def _compute_similarity(actual: str, generated: str) -> dict:
     format_sim = 100 if act_lower_only == gen_lower_only else 50
     
     # 4. Semantic Similarity (Embeddings)
-    semantic_sim = 0
+    semantic_sim = 0.0
     if eval_model:
         emb1 = eval_model.encode(actual)
         emb2 = eval_model.encode(generated)
         sim = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2) + 1e-9)
-        semantic_sim = max(0, min(100, sim * 100))
+        semantic_sim = float(max(0, min(100, sim * 100)))
         
     # 5. Emoji Scoring
     act_emojis = [c for c in actual if c in emoji.EMOJI_DATA]

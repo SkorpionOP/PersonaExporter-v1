@@ -397,7 +397,9 @@ export function PersonaViewer() {
         {/* ── System Prompt ────────────────────────────────────────────────── */}
         <Section icon={Quote} title="Compiled System Prompt" color="text-green-400" delay={0.45} span={12}>
           <pre className="bg-black/60 p-8 rounded-2xl overflow-x-auto text-sm text-green-300 font-mono whitespace-pre-wrap leading-relaxed border border-green-500/10">
-            {d.system_prompt || "No prompt compiled."}
+            {typeof d.system_prompt === 'object' && d.system_prompt !== null
+              ? (d.system_prompt.base_prompt || d.system_prompt.full_report || JSON.stringify(d.system_prompt, null, 2))
+              : (d.system_prompt || "No prompt compiled.")}
           </pre>
         </Section>
 
