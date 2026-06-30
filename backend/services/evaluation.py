@@ -9,7 +9,9 @@ from services.llm import client, MODEL_NAME
 
 try:
     from sentence_transformers import SentenceTransformer
-    eval_model = SentenceTransformer('all-MiniLM-L6-v2')
+    import torch
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    eval_model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
 except ImportError:
     eval_model = None
 

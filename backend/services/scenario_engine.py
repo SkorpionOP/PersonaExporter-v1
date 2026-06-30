@@ -10,8 +10,10 @@ import numpy as np
 
 try:
     from sentence_transformers import SentenceTransformer
+    import torch
     # Load lightweight model for semantic matching
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
 except ImportError:
     model = None
 
