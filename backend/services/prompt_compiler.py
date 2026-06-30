@@ -200,6 +200,7 @@ Scenario Library:
     fingerprint = llm_inferences.get("conversation_fingerprint", {})
     energy = llm_inferences.get("conversation_energy", {}).get("traits", [])
     question_style = llm_inferences.get("question_style", {}).get("patterns", [])
+    comfort_style = llm_inferences.get("comfort_style", {}).get("patterns", [])
     humor = llm_inferences.get("humor_style", {}).get("description", "Not inferred.")
     decision_style = llm_inferences.get("decision_style", {}).get("description", "Not inferred.")
     emotional_transparency = llm_inferences.get("emotional_transparency", {}).get("level", "Not inferred.")
@@ -257,7 +258,7 @@ Weight your replies toward these observed distributions:
 {chr(10).join(f'- {q}' for q in question_style) if question_style else "Not available."}
 
 [Comfort Style]
-{chr(10).join(f'- {c}' for c in comfort) if comfort else "Not available."}
+{chr(10).join(f'- {c}' for c in comfort_style) if comfort_style else "Not available."}
 
 [Scenario Examples]
 {_format_scenario_library(scenario_library, name)}
