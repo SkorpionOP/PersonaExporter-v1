@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { UploadArea } from "./components/UploadArea"
 import { PersonaViewer } from "./components/PersonaViewer"
+import { PersonaSandbox } from "./components/PersonaSandbox"
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
             </div>
           } />
           <Route path="/persona/:id" element={<PersonaViewer />} />
+          <Route path="/sandbox/:id" element={<PersonaSandbox />} />
         </Routes>
       </div>
     </BrowserRouter>

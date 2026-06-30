@@ -1,9 +1,17 @@
 import asyncio
 import random
+import numpy as np
+import emoji
 from typing import List, Dict, Tuple
 from models.domain import Message
 from services.scenario_engine import _is_valid_reply
 from services.llm import client, MODEL_NAME
+
+try:
+    from sentence_transformers import SentenceTransformer
+    eval_model = SentenceTransformer('all-MiniLM-L6-v2')
+except ImportError:
+    eval_model = None
 
 # Limit to avoid crashing local Ollama instances
 MAX_EVAL_PAIRS = 25
@@ -60,6 +68,12 @@ async def _simulate_reply(system_prompt: str, user_msg: str, semaphore: asyncio.
             print(f"Eval LLM simulation failed: {e}")
             return ""
 
+def _get_response_mode(text: str) -> str:
+    if '?' in text: return "Question"
+    if len(text.split()) < 5: return "Acknowledgement/Short"
+    if len(text.split()) > 20: return "Explanation/Long"
+    return "Statement/Normal"
+
 def _compute_similarity(actual: str, generated: str) -> dict:
     actual_lower = actual.lower()
     generated_lower = generated.lower()
@@ -81,11 +95,47 @@ def _compute_similarity(actual: str, generated: str) -> dict:
     gen_lower_only = generated == generated_lower
     format_sim = 100 if act_lower_only == gen_lower_only else 50
     
+    # 4. Semantic Similarity (Embeddings)
+    semantic_sim = 0
+    if eval_model:
+        emb1 = eval_model.encode(actual)
+        emb2 = eval_model.encode(generated)
+        sim = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2) + 1e-9)
+        semantic_sim = max(0, min(100, sim * 100))
+        
+    # 5. Emoji Scoring
+    act_emojis = [c for c in actual if c in emoji.EMOJI_DATA]
+    gen_emojis = [c for c in generated if c in emoji.EMOJI_DATA]
+    
+    emoji_presence = 100 if bool(act_emojis) == bool(gen_emojis) else 0
+    
+    count_diff = abs(len(act_emojis) - len(gen_emojis))
+    max_count = max(len(act_emojis), len(gen_emojis), 1)
+    emoji_count_sim = max(0, 100 - (count_diff / max_count * 100))
+    
+    act_emoji_set = set(act_emojis)
+    gen_emoji_set = set(gen_emojis)
+    e_intersect = act_emoji_set.intersection(gen_emoji_set)
+    e_union = act_emoji_set.union(gen_emoji_set)
+    emoji_choice_sim = (len(e_intersect) / len(e_union) * 100) if e_union else 100
+    if not act_emojis and not gen_emojis:
+        emoji_choice_sim = 100 # Both correctly used none
+        
+    emoji_overall = (emoji_presence + emoji_count_sim + emoji_choice_sim) / 3
+
+    # 6. Response Mode Accuracy
+    act_mode = _get_response_mode(actual)
+    gen_mode = _get_response_mode(generated)
+    mode_sim = 100 if act_mode == gen_mode else 0
+
     return {
         "length_sim": len_sim,
         "vocab_sim": vocab_sim,
         "format_sim": format_sim,
-        "overall": (len_sim + vocab_sim + format_sim) / 3
+        "semantic_sim": semantic_sim,
+        "emoji_sim": emoji_overall,
+        "mode_sim": mode_sim,
+        "overall": (len_sim + vocab_sim + format_sim + semantic_sim + emoji_overall + mode_sim) / 6
     }
 
 async def evaluate_persona(system_prompt: str, holdout_pairs: List[Dict]) -> dict:
@@ -106,6 +156,10 @@ async def evaluate_persona(system_prompt: str, holdout_pairs: List[Dict]) -> dic
     total_len_sim = 0
     total_vocab_sim = 0
     total_format_sim = 0
+    total_semantic_sim = 0
+    total_emoji_sim = 0
+    total_mode_sim = 0
+    total_overall = 0
     
     results = []
     for pair, generated in zip(holdout_pairs, generated_replies):
@@ -113,6 +167,10 @@ async def evaluate_persona(system_prompt: str, holdout_pairs: List[Dict]) -> dic
         total_len_sim += sim["length_sim"]
         total_vocab_sim += sim["vocab_sim"]
         total_format_sim += sim["format_sim"]
+        total_semantic_sim += sim["semantic_sim"]
+        total_emoji_sim += sim["emoji_sim"]
+        total_mode_sim += sim["mode_sim"]
+        total_overall += sim["overall"]
         
         results.append({
             "user_msg": pair["user_msg"],
@@ -126,7 +184,10 @@ async def evaluate_persona(system_prompt: str, holdout_pairs: List[Dict]) -> dic
         "length_similarity_pct": round(total_len_sim / n, 1),
         "vocabulary_similarity_pct": round(total_vocab_sim / n, 1),
         "formatting_similarity_pct": round(total_format_sim / n, 1),
-        "overall_score_pct": round((total_len_sim + total_vocab_sim + total_format_sim) / (3 * n), 1)
+        "semantic_similarity_pct": round(total_semantic_sim / n, 1),
+        "emoji_similarity_pct": round(total_emoji_sim / n, 1),
+        "response_mode_accuracy_pct": round(total_mode_sim / n, 1),
+        "overall_score_pct": round(total_overall / n, 1)
     }
     
     return {

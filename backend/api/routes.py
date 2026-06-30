@@ -18,7 +18,9 @@ from services.formatting import extract_formatting, compute_hard_constraints
 
 from services.llm import infer_behavior_patterns
 from services.prompt_compiler import compile_system_prompt
-from services.evaluation import extract_holdout_set, evaluate_persona
+from services.evaluation import extract_holdout_set, evaluate_persona, eval_model
+from services.rap_engine import build_persona_memory_store
+from services.runtime import PersonaRuntime
 from pdf.generator import generate_persona_pdf
 
 from pydantic import BaseModel
@@ -69,10 +71,14 @@ async def process_chat_background(upload_id: int, file_path: str, target_person:
         communication_signature = compute_communication_signature(messages, target_person)
         
         topic_graph        = analyze_topics(messages, target_person)
-        scenario_library   = extract_scenario_library(messages, target_person)
+        
+        # ── 2.5 BUILD RAP MEMORY STORE ────────────────────────────────────────
+        faiss_store = build_persona_memory_store(messages, eval_model)
+        faiss_path = f"uploads/{upload.id}_memory"
+        faiss_store.save(faiss_path)
 
-        # Triggers and real examples can just be extracted from the scenario library
-        # to simplify the pipeline. We take 30 random examples from scenario_library values.
+        # Fallback to static scenarios for prompt compiler
+        scenario_library = extract_scenario_library(messages, target_person)
         all_scenarios = []
         for v in scenario_library.values():
             all_scenarios.extend(v)
@@ -258,6 +264,15 @@ def download_persona_pack(persona_id: int, db: Session = Depends(get_db)):
         zf.writestr("persona.pdf", pdf_bytes)
         zf.writestr("persona.json", json.dumps(persona_data, indent=2))
         
+        # Include FAISS memory store if it exists
+        upload_id = persona.upload_id
+        faiss_idx_path = f"uploads/{upload_id}_memory.faiss"
+        faiss_meta_path = f"uploads/{upload_id}_memory_meta.json"
+        if os.path.exists(faiss_idx_path):
+            zf.write(faiss_idx_path, "memory_store.faiss")
+        if os.path.exists(faiss_meta_path):
+            zf.write(faiss_meta_path, "memory_store_meta.json")
+        
         sys_prompt_data = persona_data.get("system_prompt", {})
         if isinstance(sys_prompt_data, dict):
             zf.writestr("system_prompt_base.txt", sys_prompt_data.get("base_prompt", ""))
@@ -278,3 +293,32 @@ def download_persona_pack(persona_id: int, db: Session = Depends(get_db)):
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename=PersonaPack_{persona_id}.zip"}
     )
+
+# Basic runtime cache for Sandbox MVP
+runtime_cache = {}
+
+class ChatRequest(BaseModel):
+    user_msg: str
+    chat_history: list = []
+
+@api_router.post("/chat/{persona_id}")
+async def sandbox_chat(persona_id: int, request: ChatRequest, db: Session = Depends(get_db)):
+    persona = db.query(PersonaModel).filter(PersonaModel.id == persona_id).first()
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+        
+    if persona_id not in runtime_cache:
+        persona_data = json.loads(persona.data)
+        sys_prompt_data = persona_data.get("system_prompt", {})
+        base_prompt = sys_prompt_data.get("base_prompt", "") if isinstance(sys_prompt_data, dict) else sys_prompt_data
+        
+        runtime_cache[persona_id] = PersonaRuntime(
+            persona_id=persona_id, 
+            target_person=persona.name, 
+            system_prompt_base=base_prompt
+        )
+        
+    runtime = runtime_cache[persona_id]
+    result = await runtime.generate_reply(request.chat_history, request.user_msg)
+    
+    return result
