@@ -2,6 +2,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { UploadArea } from "./components/UploadArea"
 import { PersonaViewer } from "./components/PersonaViewer"
 import { PersonaSandbox } from "./components/PersonaSandbox"
+import { CoachView } from "./components/CoachView"
+import { TimelineView } from "./components/TimelineView"
+import { CompareView } from "./components/CompareView"
 
 function App() {
   return (
@@ -17,6 +20,9 @@ function App() {
           } />
           <Route path="/persona/:id" element={<PersonaViewer />} />
           <Route path="/sandbox/:id" element={<PersonaSandbox />} />
+          <Route path="/coach/:id" element={<CoachView />} />
+          <Route path="/timeline/:id" element={<TimelineView />} />
+          <Route path="/compare/:id1/:id2" element={<CompareView />} />
         </Routes>
       </div>
     </BrowserRouter>

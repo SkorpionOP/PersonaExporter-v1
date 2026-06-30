@@ -21,6 +21,9 @@ from services.prompt_compiler import compile_system_prompt
 from services.evaluation import extract_holdout_set, evaluate_persona, eval_model
 from services.rap_engine import build_persona_memory_store
 from services.runtime import PersonaRuntime
+from services.analytics import compare_personas
+from services.timeline_engine import generate_timeline
+from services.coach import generate_coaching_advice
 from pdf.generator import generate_persona_pdf
 
 from pydantic import BaseModel
@@ -322,3 +325,54 @@ async def sandbox_chat(persona_id: int, request: ChatRequest, db: Session = Depe
     result = await runtime.generate_reply(request.chat_history, request.user_msg)
     
     return result
+
+@api_router.get("/compare/{id1}/{id2}")
+def compare_personas_endpoint(id1: int, id2: int, db: Session = Depends(get_db)):
+    p1 = db.query(PersonaModel).filter(PersonaModel.id == id1).first()
+    p2 = db.query(PersonaModel).filter(PersonaModel.id == id2).first()
+    
+    if not p1 or not p2:
+        raise HTTPException(status_code=404, detail="One or both personas not found")
+        
+    p1_data = json.loads(p1.data)
+    p2_data = json.loads(p2.data)
+    
+    result = compare_personas(p1_data, p2_data)
+    result["p1_name"] = p1.name
+    result["p2_name"] = p2.name
+    return result
+
+@api_router.get("/persona/{id}/timeline")
+def persona_timeline_endpoint(id: int, db: Session = Depends(get_db)):
+    persona = db.query(PersonaModel).filter(PersonaModel.id == id).first()
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+        
+    upload = db.query(UploadModel).filter(UploadModel.id == persona.upload_id).first()
+    if not upload:
+        raise HTTPException(status_code=404, detail="Original upload not found")
+        
+    ext = os.path.splitext(upload.filename)[1]
+    file_path = f"uploads/{upload.id}{ext}"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Original chat file is no longer available on disk.")
+        
+    parser = get_parser_for_filename(upload.filename)
+    with open(file_path, 'rb') as f:
+        conversation = parser.parse(f)
+        
+    from services.cleaning import clean_messages
+    messages = clean_messages(conversation.messages)
+    
+    timeline = generate_timeline(messages, persona.name, num_chunks=10)
+    return {"timeline": timeline}
+
+@api_router.get("/persona/{id}/coach")
+async def persona_coach_endpoint(id: int, db: Session = Depends(get_db)):
+    persona = db.query(PersonaModel).filter(PersonaModel.id == id).first()
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+        
+    persona_data = json.loads(persona.data)
+    advice = await generate_coaching_advice(persona_data, persona.name)
+    return advice

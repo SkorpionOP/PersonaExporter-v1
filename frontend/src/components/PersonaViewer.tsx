@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Download, ArrowLeft, BarChart2, Brain, Quote, MessageSquare, PenTool, ShieldAlert, Zap, Hash, Activity, Bot } from "lucide-react";
+import { Download, ArrowLeft, BarChart2, Brain, Quote, MessageSquare, PenTool, ShieldAlert, Zap, Hash, Activity, Bot, BrainCircuit, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import axios from "axios";
 
@@ -94,6 +94,20 @@ export function PersonaViewer() {
         </div>
         <div className="flex gap-3">
           <button
+            onClick={() => navigate(`/coach/${id}`)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 text-white font-semibold rounded-full hover:bg-violet-700 transition-colors text-sm"
+          >
+            <BrainCircuit className="w-4 h-4" />
+            Comm Coach
+          </button>
+          <button
+            onClick={() => navigate(`/timeline/${id}`)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 transition-colors text-sm"
+          >
+            <TrendingUp className="w-4 h-4" />
+            Timeline Drift
+          </button>
+          <button
             onClick={() => navigate(`/sandbox/${id}`)}
             className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-colors text-sm"
           >
@@ -105,7 +119,7 @@ export function PersonaViewer() {
             className="flex items-center gap-2 px-5 py-2.5 bg-white text-black font-semibold rounded-full hover:bg-white/90 transition-colors text-sm"
           >
             <Download className="w-4 h-4" />
-            Export PersonaPack
+            Export
           </button>
         </div>
       </motion.header>
