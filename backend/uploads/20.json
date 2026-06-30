@@ -1,0 +1,229 @@
+{
+ "name": "Sᴋᴏʀᴘɪᴏɴ",
+ "type": "personal_chat",
+ "id": 1404402964,
+ "messages": [
+  {
+   "id": 30745,
+   "type": "message",
+   "date": "2026-06-16T00:49:46",
+   "date_unixtime": "1781551186",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "file": "(File not included. Change data exporting settings to download.)",
+   "file_name": "sticker.webp",
+   "file_size": 39182,
+   "thumbnail": "(File not included. Change data exporting settings to download.)",
+   "thumbnail_file_size": 20688,
+   "media_type": "sticker",
+   "sticker_emoji": "❤️",
+   "mime_type": "image/webp",
+   "width": 512,
+   "height": 512,
+   "text": "",
+   "text_entities": []
+  },
+  {
+   "id": 30746,
+   "type": "message",
+   "date": "2026-06-16T00:49:49",
+   "date_unixtime": "1781551189",
+   "from": "Saptarshi Laskar",
+   "from_id": "user1404402964",
+   "text": "Work-Eat-Sleep",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Work-Eat-Sleep"
+    }
+   ]
+  },
+  {
+   "id": 30747,
+   "type": "message",
+   "date": "2026-06-16T00:50:07",
+   "date_unixtime": "1781551207",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "file": "(File not included. Change data exporting settings to download.)",
+   "file_name": "sticker.webm",
+   "file_size": 167290,
+   "thumbnail": "(File not included. Change data exporting settings to download.)",
+   "thumbnail_file_size": 8874,
+   "media_type": "sticker",
+   "sticker_emoji": "😆",
+   "mime_type": "video/webm",
+   "duration_seconds": 2,
+   "width": 512,
+   "height": 512,
+   "text": "",
+   "text_entities": []
+  },
+  {
+   "id": 30748,
+   "type": "message",
+   "date": "2026-06-16T00:50:15",
+   "date_unixtime": "1781551215",
+   "from": "Saptarshi Laskar",
+   "from_id": "user1404402964",
+   "text": "And don't forget to drink plenty of water 👍",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "And don't forget to drink plenty of water 👍"
+    }
+   ]
+  },
+  {
+   "id": 30749,
+   "type": "message",
+   "date": "2026-06-16T00:50:22",
+   "date_unixtime": "1781551222",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "text": "Yeah doing that man!",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Yeah doing that man!"
+    }
+   ]
+  },
+  {
+   "id": 30750,
+   "type": "message",
+   "date": "2026-06-16T00:50:25",
+   "date_unixtime": "1781551225",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "text": "Same 2 you lol",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Same 2 you lol"
+    }
+   ]
+  },
+  {
+   "id": 30751,
+   "type": "message",
+   "date": "2026-06-16T00:50:28",
+   "date_unixtime": "1781551228",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "text": "Stay hydrated haha",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Stay hydrated haha"
+    }
+   ]
+  },
+  {
+   "id": 30752,
+   "type": "message",
+   "date": "2026-06-16T00:50:32",
+   "date_unixtime": "1781551232",
+   "from": "Saptarshi Laskar",
+   "from_id": "user1404402964",
+   "text": "Yah",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Yah"
+    }
+   ]
+  },
+  {
+   "id": 30753,
+   "type": "message",
+   "date": "2026-06-16T00:50:38",
+   "date_unixtime": "1781551238",
+   "from": "Saptarshi Laskar",
+   "from_id": "user1404402964",
+   "text": "Good Night",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Good Night"
+    }
+   ]
+  },
+  {
+   "id": 30754,
+   "type": "message",
+   "date": "2026-06-16T00:50:54",
+   "date_unixtime": "1781551254",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "text": "Good night tooo!!",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Good night tooo!!"
+    }
+   ]
+  },
+  {
+   "id": 30755,
+   "type": "message",
+   "date": "2026-06-16T00:51:02",
+   "date_unixtime": "1781551262",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "text": "Ty for bringing back my motivation to workout",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Ty for bringing back my motivation to workout"
+    }
+   ]
+  },
+  {
+   "id": 30756,
+   "type": "message",
+   "date": "2026-06-16T00:51:09",
+   "date_unixtime": "1781551269",
+   "from": "Sᴋᴏʀᴘɪᴏɴ",
+   "from_id": "user5000941621",
+   "text": "I'll do my best 🩵",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "I'll do my best 🩵"
+    }
+   ]
+  },
+  {
+   "id": 30757,
+   "type": "message",
+   "date": "2026-06-16T00:51:26",
+   "date_unixtime": "1781551286",
+   "edited": "2026-06-16T00:51:30",
+   "edited_unixtime": "1781551290",
+   "from": "Saptarshi Laskar",
+   "from_id": "user1404402964",
+   "text": "Best of luck !!!",
+   "text_entities": [
+    {
+     "type": "plain",
+     "text": "Best of luck !!!"
+    }
+   ],
+   "reactions": [
+     {
+      "type": "emoji",
+      "count": 1,
+      "emoji": "❤",
+      "recent": [
+       {
+        "from": "Sᴋᴏʀᴘɪᴏɴ",
+        "from_id": "user5000941621",
+        "date": "2026-06-16T00:51:30"
+       }
+      ]
+     }
+    ]
+  }
+ ]
+}

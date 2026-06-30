@@ -1,77 +1,79 @@
 """
 Prompt Compiler — 100% deterministic. No LLM.
-Builds the final system prompt purely from Python f-strings using measured data.
-The LLM never writes the prompt itself — only the 4 inferred sections come from LLM.
-
-Round 3 — major restructure:
-  Output sections:
-    [OBSERVED DATA]            ← hard facts + probabilities
-    [BEHAVIORAL INSTRUCTIONS]  ← rules derived from formatting engine
-    [RESPONSE MODES]           ← mode probabilities from behavior engine (NEW)
-    [SCENARIO LIBRARY]         ← real (trigger→reply) pairs per bucket (NEW)
-    [EMOTIONAL LOGIC]          ← LLM inferences with confidence scores
-    [HARD CONSTRAINTS]         ← threshold-derived hard rules
-
-  Removed:
-    [TRIGGER RESPONSES]  — replaced by [SCENARIO LIBRARY]
-    [FEW-SHOT EXAMPLES]  — merged into [SCENARIO LIBRARY]
+Builds the final persona output into a strict 4-Layer architecture.
 """
 
-
-# ─── Formatting helpers ───────────────────────────────────────────────────────
-
-def _format_emotional_logic(patterns: list) -> str:
-    lines = []
-    for p in patterns:
-        lines.append(f'When {p.get("when", "?")}:')
-        for i, step in enumerate(p.get("response_steps", []), 1):
-            lines.append(f'  {i}. {step}')
-        lines.append("")
+def _format_evidence_block(block: dict) -> str:
+    if not block:
+        return "  (No evidence available)"
+    conf = block.get('confidence', '?')
+    det = block.get('detected', '?')
+    lines = [
+        f"  Confidence: {conf}%",
+        f"  Detected: {det}"
+    ]
+    if block.get('examples'):
+        lines.append("  Examples:")
+        for ex in block.get('examples', []):
+            lines.append(f"    - {ex}")
     return "\n".join(lines)
 
 
-def _format_inferred_field(field: object) -> str:
-    """Handles both legacy string and new {description, confidence, evidence} object."""
-    if isinstance(field, dict):
-        desc = field.get("description", "?")
-        conf = field.get("confidence", "?")
-        evid = field.get("evidence", "")
-        return f"{desc}  [confidence: {conf}% | evidence: {evid}]"
-    return str(field)
+def _format_llm_inference(title: str, content: dict) -> str:
+    if not content:
+        return ""
+    lines = [f"{title}"]
+    
+    for k, v in content.items():
+        if k == "evidence_block":
+            continue
+        if isinstance(v, list):
+            lines.append(f"  {k.replace('_', ' ').capitalize()}: {', '.join(v)}")
+        else:
+            lines.append(f"  {k.replace('_', ' ').capitalize()}: {v}")
+            
+    lines.append(_format_evidence_block(content.get("evidence_block", {})))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_topic_graph(topic_graph: dict) -> str:
+    if not topic_graph:
+        return "  (No topics detected)"
+    lines = []
+    for topic, data in sorted(topic_graph.items(), key=lambda x: -x[1].get("percentage", 0)):
+        pct = data.get("percentage", 0)
+        conf = data.get("confidence", 0)
+        lines.append(f"  {topic}: {pct}% (Confidence: {conf}%)")
+        lines.append(f"    Avg length: {data.get('average_reply_length')} words")
+        if data.get('most_common_words'):
+            lines.append(f"    Common words: {', '.join(data['most_common_words'])}")
+        wt = data.get('weighted_transitions')
+        if wt:
+            wt_str = ", ".join(f"{k} ({v})" for k, v in wt.items())
+            lines.append(f"    Transitions to: {wt_str}")
+    return "\n".join(lines)
 
 
 def _format_response_modes(modes: dict) -> str:
-    """
-    Renders response mode probabilities as a readable table-like block.
-    modes = {mode_name: {"probability_pct": float, "count": int}, ...}
-    """
     if not modes:
         return "  (no mode data)"
     lines = []
-    for mode, data in sorted(modes.items(), key=lambda x: -x[1].get("probability_pct", 0)):
-        pct = data.get("probability_pct", 0)
-        count = data.get("count", 0)
-        bar = "█" * max(1, int(pct / 5))  # visual bar, 1 block per 5%
-        lines.append(f"  {mode:<14} {bar:<20} {pct:>5.1f}%  ({count} messages)")
+    for mode, data in sorted(modes.items(), key=lambda x: -float(x[1].strip('%')) if isinstance(x[1], str) else 0):
+        lines.append(f"  {mode}: {data}")
     return "\n".join(lines)
 
 
 def _format_scenario_library(library: dict, name: str) -> str:
-    """
-    Renders the scenario library as labelled example blocks.
-    library = {scenario_label: [{user: str, assistant: str}, ...]}
-    """
     if not library:
         return "  (no scenario data)"
     lines = []
     for scenario, examples in library.items():
-        label = scenario.upper().replace("_", " ")
-        lines.append(f"  ── {label} ({len(examples)} examples) ──")
-        for ex in examples[:6]:  # cap at 6 per scenario to keep prompt lean
-            lines.append(f'  User:  {ex["user"][:100]}')
-            lines.append(f'  {name}: {ex["assistant"][:100]}')
-            lines.append("  ---")
-        lines.append("")
+        label = scenario.title()
+        lines.append(f"  [{label}]")
+        for ex in examples[:3]:  # cap at 3 per scenario to keep prompt lean
+            lines.append(f'    User: {ex["user"][:100]}')
+            lines.append(f'    {name}: {ex["assistant"][:100]}')
     return "\n".join(lines)
 
 
@@ -92,10 +94,11 @@ def _format_quirks(quirks: dict) -> str:
     if quirks.get("letter_stretches"):
         stretches = ", ".join(quirks["letter_stretches"][:10])
         parts.append(f"  Letter-stretch examples: {stretches}  (total: {quirks.get('letter_stretch_count', '?')})")
+    if quirks.get("preferred_spellings"):
+        spellings = ", ".join([f"{v} (over {k})" for k, v in quirks["preferred_spellings"].items()])
+        parts.append(f"  Preferred Spellings: {spellings}")
     return "\n".join(parts) if parts else "  (none detected)"
 
-
-# ─── Main compiler ────────────────────────────────────────────────────────────
 
 def compile_system_prompt(
     name: str,
@@ -106,88 +109,155 @@ def compile_system_prompt(
     constraints: list,
     llm_inferences: dict,
     examples: list,
-    # ─── Round 3 additions ───
     response_modes: dict = None,
     scenario_library: dict = None,
     pacing: dict = None,
     vocab_categories: dict = None,
     quirks: dict = None,
-    # ─── Legacy (kept for backward compat, ignored) ───
+    topic_graph: dict = None,
     triggers: list = None,
+    linguistics: dict = None,
+    conversation_graph: dict = None,
+    communication_signature: list = None,
 ) -> str:
     response_modes = response_modes or {}
     scenario_library = scenario_library or {}
     pacing = pacing or {}
     vocab_categories = vocab_categories or {}
     quirks = quirks or {}
+    topic_graph = topic_graph or {}
+    linguistics = linguistics or {}
+    conversation_graph = conversation_graph or {}
+    communication_signature = communication_signature or []
+    
+    words_stats = stats.get("words", {})
+    timing_stats = stats.get("timing", {})
+    lexical = linguistics.get("lexical_richness", {})
 
-    top_words_str = ", ".join(w["word"] for w in vocab.get("top_words", [])[:20])
-    top_bigrams_str = ", ".join(b["phrase"] for b in vocab.get("top_bigrams", [])[:8])
-    never_formal_str = ", ".join(vocab.get("never_used_formal_words", []))
-    top_emojis_str = " ".join(e["emoji"] for e in emojis.get("top_emojis", [])[:8])
-    formatting_rules = formatting.get("rules", [])
+    layer1 = f"""━━━━━━━━━━━━━━
+LAYER 1: Statistics
+━━━━━━━━━━━━━━
+Messages Analyzed: {stats.get("total_messages", "?")}
+Words:
+  Average: {words_stats.get("average", "?")}
+  Median: {words_stats.get("median", "?")}
+  P90: {words_stats.get("p90", "?")}
+  Longest: {words_stats.get("longest", "?")}
 
-    # Pacing summary line
-    avg_burst = pacing.get("avg_consecutive_messages", "?")
-    solo_rate = pacing.get("single_message_rate_pct", "?")
-    max_burst = pacing.get("max_burst_observed", "?")
+Activity Timing:
+  Morning: {timing_stats.get("morning_pct", "?")}%
+  Night: {timing_stats.get("night_pct", "?")}%
 
-    return f"""You are {name}.
+Burst stats:
+  Avg burst length: {pacing.get("avg_consecutive_messages", "?")}
+  Solo message rate: {pacing.get("single_message_rate_pct", "?")}%
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[OBSERVED DATA]  ← hard facts, measured directly from real messages
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Messages analyzed: {stats.get("total_messages", "?")}
-- Average reply length: {stats.get("avg_words_per_message", "?")} words
-- Lowercase rate: {round(stats.get("lowercase_rate", 0) * 100, 1)}% of messages are fully lowercase
-- ALL CAPS usage: {round(stats.get("caps_rate", 0) * 100, 1)}% of words — {"avoid except for excitement" if stats.get("caps_rate", 1) < 0.03 else "used for emphasis"}
-- Emoji rate: {emojis.get("emoji_rate_pct", "?")}% of messages contain at least one emoji
-- Question rate: {round(stats.get("question_rate", 0) * 100, 1)}% of messages contain a question
-- Uses repeated letters (nahhh, heyyyy): {round(stats.get("repeated_char_rate", 0) * 100, 1)}% of messages
-- Uses "..." for pauses: {round(stats.get("ellipsis_rate", 0) * 100, 1)}% of messages
-- Avg burst (consecutive messages sent): {avg_burst}
-- Solo-message bursts: {solo_rate}%  |  Max burst observed: {max_burst} messages
+Linguistics:
+  Avg Sentence Length: {linguistics.get("sentence_metrics", {}).get("average_length", "?")} words
+  Avg Clauses: {linguistics.get("sentence_metrics", {}).get("average_clauses", "?")}
+  One-word replies: {linguistics.get("sentence_metrics", {}).get("one_word_replies_pct", "?")}%
+  Emojis per msg: {linguistics.get("structure_metrics", {}).get("emojis_per_message", "?")}
+  Questions per msg: {linguistics.get("structure_metrics", {}).get("questions_per_message", "?")}
 
-Vocabulary ({vocab.get("total_unique_words", "?")} unique words):
-  Most used: {top_words_str}
-  Signature phrases: {top_bigrams_str}
-  Top emojis: {top_emojis_str}
+Lexical Richness:
+  Unique Words: {lexical.get("unique_words", "?")}
+  Type-Token Ratio: {lexical.get("type_token_ratio", "?")}
+  Repetition Score: {lexical.get("repetition_score", "?")}%
+"""
 
-Vocabulary categories detected:
+    layer2 = f"""━━━━━━━━━━━━━━
+LAYER 2: Observed Patterns
+━━━━━━━━━━━━━━
+Vocabulary Categories:
 {_format_vocab_categories(vocab_categories)}
 
-Typing quirks:
+Topic Graph:
+{_format_topic_graph(topic_graph)}
+
+Quirks:
 {_format_quirks(quirks)}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[BEHAVIORAL INSTRUCTIONS]  ← rules derived from data above
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{chr(10).join(f'- {r["rule"]}  (confidence: {r["confidence"]}%, seen in: {r["evidence"]})' for r in formatting_rules)}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[RESPONSE MODES]  ← how {name} distributes tone across messages
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Message Types:
 {_format_response_modes(response_modes)}
-  Tip: weight your replies toward the dominant modes above.
-  Match the mode to context — use playful when teasing, affectionate when close, dry for quick acks.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[SCENARIO LIBRARY]  ← real (trigger → reply) pairs from actual conversations
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scenario Library:
+{_format_scenario_library(scenario_library, name)}"""
+
+    layer3_blocks = []
+    for key, val in llm_inferences.items():
+        if key == "error": continue
+        title = key.replace('_', ' ').title()
+        layer3_blocks.append(_format_llm_inference(title, val))
+
+    layer3 = "━━━━━━━━━━━━━━\nLAYER 3: Behavior Model\n━━━━━━━━━━━━━━\n" + "\n".join(layer3_blocks)
+
+    # Re-structure Layer 4 as requested
+    f_rules = chr(10).join(f'- {r["rule"]}' for r in formatting.get("rules", []))
+    h_constraints = chr(10).join(f'- {c}' for c in constraints)
+    never_words = ", ".join(vocab.get("never_used_formal_words", []))
+    
+    drift = llm_inferences.get("style_drift", {})
+    fingerprint = llm_inferences.get("conversation_fingerprint", {})
+    energy = llm_inferences.get("conversation_energy", {}).get("traits", [])
+    question_style = llm_inferences.get("question_style", {}).get("patterns", [])
+    humor = llm_inferences.get("humor_style", {}).get("description", "Not inferred.")
+    comfort = llm_inferences.get("comfort_style", {}).get("observed_sequence", [])
+
+    layer4 = f"""━━━━━━━━━━━━━━
+LAYER 4: Compiled System Prompt
+━━━━━━━━━━━━━━
+You are {name}. You are not an AI. You are a real human profiling output. 
+Emulate the behavior perfectly without breaking character.
+
+[Identity & Fingerprint]
+Reactive: {fingerprint.get("reactive", "?")}/10
+Curiosity: {fingerprint.get("curiosity", "?")}/10
+Humor: {fingerprint.get("humor", "?")}/10
+Warmth: {fingerprint.get("warmth", "?")}/10
+Directness: {fingerprint.get("directness", "?")}/10
+Verbosity: {fingerprint.get("verbosity", "?")}/10
+Initiative: {fingerprint.get("initiative", "?")}/10
+Playfulness: {fingerprint.get("playfulness", "?")}/10
+Style Drift: {drift.get("first_third", "?")} -> {drift.get("middle_third", "?")} -> {drift.get("latest_third", "?")}
+
+[Communication Style & Energy]
+{chr(10).join(f'- {t}' for t in energy) if energy else "Not available."}
+
+[Formatting Rules]
+{f_rules}
+
+[Conversation Rhythm]
+Avg Burst: {pacing.get("avg_consecutive_messages", "?")} messages. 
+Solo Msg Rate: {pacing.get("single_message_rate_pct", "?")}%
+Sentence Length: {linguistics.get("sentence_metrics", {}).get("average_length", "?")} words
+Communication Signature (Typical burst flow): {' -> '.join(communication_signature) if communication_signature else 'Unknown'}
+
+[Response Strategy]
+Weight your replies toward these observed distributions:
+{_format_response_modes(response_modes)}
+
+[Topic Preferences]
+{_format_topic_graph(topic_graph)}
+
+[Humor Style]
+{humor}
+
+[Question Style]
+{chr(10).join(f'- {q}' for q in question_style) if question_style else "Not available."}
+
+[Comfort Style]
+{chr(10).join(f'- {c}' for c in comfort) if comfort else "Not available."}
+
+[Scenario Examples]
 {_format_scenario_library(scenario_library, name)}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[EMOTIONAL LOGIC]  ← inferred from patterns (LLM-assisted)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{_format_emotional_logic(llm_inferences.get("emotional_response_patterns", []))}
-Humor style:   {_format_inferred_field(llm_inferences.get("humor_style", "?"))}
-Conflict style: {_format_inferred_field(llm_inferences.get("conflict_style", "?"))}
-Comfort style:  {_format_inferred_field(llm_inferences.get("comfort_style", "?"))}
+[Vocabulary & Quirks]
+{_format_vocab_categories(vocab_categories)}
+{_format_quirks(quirks)}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[HARD CONSTRAINTS]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{chr(10).join(f'- {c}' for c in constraints)}
-
-NEVER use these words (zero occurrences in real chat): {never_formal_str}
+[Hard Constraints]
+{h_constraints}
+NEVER use these words: {never_words}
 """
+
+    return "\n\n".join([layer1, layer2, layer3, layer4])

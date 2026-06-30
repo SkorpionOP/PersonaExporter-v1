@@ -13,9 +13,15 @@ export function UploadArea() {
   const [participants, setParticipants] = useState<string[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<string>("");
   const [step, setStep] = useState<"upload" | "select" | "processing">("upload");
+  const [platform, setPlatform] = useState<"whatsapp" | "telegram">("whatsapp");
   
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  const handlePlatformChange = (p: "whatsapp" | "telegram") => {
+    setPlatform(p);
+    setFile(null);
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -44,8 +50,13 @@ export function UploadArea() {
   };
 
   const handleFile = (selectedFile: File) => {
-    if (!selectedFile.name.endsWith('.txt')) {
-      alert("Only .txt exports are supported currently.");
+    const name = selectedFile.name.toLowerCase();
+    if (platform === "whatsapp" && !name.endsWith('.txt')) {
+      alert("Only WhatsApp chat exports (.txt files) are supported.");
+      return;
+    }
+    if (platform === "telegram" && !name.endsWith('.json')) {
+      alert("Only Telegram chat exports (JSON files) are supported.");
       return;
     }
     setFile(selectedFile);
@@ -115,61 +126,111 @@ export function UploadArea() {
       <AnimatePresence mode="wait">
         {step === "upload" && (
           <motion.div
-            key="upload-zone"
+            key="upload-screen"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className={`relative rounded-3xl border-2 border-dashed p-12 transition-all duration-300 ease-in-out flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden backdrop-blur-md bg-white/5 ${
-              dragActive 
-                ? "border-primary/50 bg-primary/5 shadow-2xl scale-[1.02]" 
-                : "border-white/10 hover:border-white/20 hover:bg-white/10"
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
+            className="flex flex-col gap-6"
           >
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".txt"
-              onChange={handleChange}
-              className="hidden"
-            />
-            
-            <motion.div
-              animate={{ y: dragActive ? -10 : 0 }}
-              className="p-4 bg-white/5 rounded-full mb-6"
-            >
-              <UploadCloud className="w-10 h-10 text-white/60" />
-            </motion.div>
-            
-            <h3 className="text-xl font-semibold mb-2">
-              {file ? file.name : "Drop your chat export here"}
-            </h3>
-            <p className="text-white/40 mb-8 max-w-sm">
-              {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "Support for WhatsApp (.txt). Discord and Telegram coming soon."}
-            </p>
-            
-            {file && (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+            {/* Premium Sliding Segmented Control */}
+            <div className="flex justify-center gap-1 p-1 bg-white/5 border border-white/10 rounded-2xl max-w-xs w-full mx-auto backdrop-blur-md">
+              <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  startUpload();
+                  handlePlatformChange("whatsapp");
                 }}
-                className="px-8 py-3 rounded-full bg-white text-black font-semibold hover:bg-white/90 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                className={`relative flex-1 py-2.5 px-6 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                  platform === "whatsapp" ? "text-black" : "text-white/60 hover:text-white"
+                }`}
               >
-                Generate Persona
-              </motion.button>
-            )}
-            
-            {uploading && (
-              <div className="mt-4 text-white/50">Uploading... {progress}%</div>
-            )}
+                {platform === "whatsapp" && (
+                  <motion.div
+                    layoutId="active-platform"
+                    className="absolute inset-0 bg-white rounded-xl -z-10"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePlatformChange("telegram");
+                }}
+                className={`relative flex-1 py-2.5 px-6 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                  platform === "telegram" ? "text-black" : "text-white/60 hover:text-white"
+                }`}
+              >
+                {platform === "telegram" && (
+                  <motion.div
+                    layoutId="active-platform"
+                    className="absolute inset-0 bg-white rounded-xl -z-10"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                Telegram
+              </button>
+            </div>
+
+            <div
+              className={`relative rounded-3xl border-2 border-dashed p-12 transition-all duration-300 ease-in-out flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden backdrop-blur-md bg-white/5 ${
+                dragActive 
+                  ? "border-primary/50 bg-primary/5 shadow-2xl scale-[1.02]" 
+                  : "border-white/10 hover:border-white/20 hover:bg-white/10"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => inputRef.current?.click()}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept={platform === "whatsapp" ? ".txt" : ".json"}
+                onChange={handleChange}
+                className="hidden"
+              />
+              
+              <motion.div
+                animate={{ y: dragActive ? -10 : 0 }}
+                className="p-4 bg-white/5 rounded-full mb-6"
+              >
+                <UploadCloud className="w-10 h-10 text-white/60" />
+              </motion.div>
+              
+              <h3 className="text-xl font-semibold mb-2">
+                {file ? file.name : `Drop your ${platform === "whatsapp" ? "WhatsApp" : "Telegram"} export here`}
+              </h3>
+              <p className="text-white/40 mb-8 max-w-sm">
+                {file 
+                  ? `${(file.size / 1024 / 1024).toFixed(2)} MB` 
+                  : platform === "whatsapp"
+                    ? "Support for WhatsApp chat exports (.txt files)"
+                    : "Support for Telegram chat exports (result.json files)"}
+              </p>
+              
+              {file && (
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startUpload();
+                  }}
+                  className="px-8 py-3 rounded-full bg-white text-black font-semibold hover:bg-white/90 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                >
+                  Generate Persona
+                </motion.button>
+              )}
+              
+              {uploading && (
+                <div className="mt-4 text-white/50">Uploading... {progress}%</div>
+              )}
+            </div>
           </motion.div>
         )}
 

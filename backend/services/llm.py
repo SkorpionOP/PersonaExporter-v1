@@ -1,13 +1,9 @@
 """
-LLM — Reduced to 20% role.
-Only infers what machines cannot compute:
-  - Emotional response patterns
-  - Humor style
-  - Conflict style
-  - Comfort style
-
-Round 3: humor_style, conflict_style, comfort_style now return structured objects
-with description, confidence (0-100), and evidence string.
+LLM Engine
+Infers behaviors that machines cannot compute:
+  - Question style, Conversation energy, Conversation role, Rhythm, Topic memory
+  - Contradictions, Conversation Fingerprint, Style Drift, Emotional Triggers
+ALL inferences use a strict Evidence Block schema.
 """
 import json
 from openai import AsyncOpenAI
@@ -18,21 +14,11 @@ client = AsyncOpenAI(
 )
 MODEL_NAME = "qwen2.5:1.5b"
 
-
 async def infer_behavior_patterns(
     conversation_text: str,
     target_person: str,
     hard_stats: dict,
 ) -> dict:
-    """
-    The ONLY LLM call in the entire pipeline.
-
-    Sends hard measured facts as context.
-    Asks LLM to infer ONLY the 4 things machines cannot compute.
-    Each of the 3 single-sentence fields now includes confidence (0-100)
-    and a brief evidence string so the prompt can display them transparently.
-    Does NOT ask it to write a prompt. Does NOT ask it to summarize.
-    """
     top_words = [w["word"] for w in hard_stats.get("vocab", {}).get("top_words", [])[:15]]
     top_emojis = [e["emoji"] for e in hard_stats.get("emojis", {}).get("top_emojis", [])[:5]]
 
@@ -45,43 +31,54 @@ MEASURED FACTS about {target_person} (do NOT reinvent these — they are already
 - Top 15 words used: {top_words}
 - Top emojis: {top_emojis}
 
-REAL CONVERSATION SAMPLE (last 200 messages from {target_person}):
+REAL CONVERSATION SAMPLES (Start, Middle, and Latest messages from {target_person}):
 {conversation_text[:16000]}
 """
 
     prompt = f"""
 You are a behavioral extractor. Your job is to observe ONLY.
-
 Do NOT summarize. Do NOT describe personality in adjectives.
 Do NOT write a system prompt. Return ONLY valid JSON.
 
-Based on the facts and conversation sample above, infer ONLY these 4 things for "{target_person}".
-
-For humor_style, conflict_style, and comfort_style — return an object with:
-  - "description": one cold factual sentence (no adjectives like "warm" or "empathetic")
-  - "confidence": integer 0-100 representing how certain you are based on evidence
-  - "evidence": a brief phrase citing what you observed (e.g. "48 teasing exchanges, 0 dark humor")
+Based on the facts and conversation sample above, infer ONLY these behaviors for "{target_person}".
+EVERY inference MUST include an "evidence_block" with "confidence" (0-100), "detected" (brief observation count), and "examples" (list of 1-2 short quotes).
 
 {{
-  "emotional_response_patterns": [
-    {{"when": "user shares sad news", "response_steps": ["step 1", "step 2", "step 3"]}},
-    {{"when": "user shares good news", "response_steps": ["step 1", "step 2"]}},
-    {{"when": "user is angry", "response_steps": ["step 1", "step 2"]}}
+  "contradictions": [
+    {{"behavior": "Usually reserved", "but": "Very expressive after midnight", "evidence_block": {{"confidence": 88, "detected": "Late night chats", "examples": []}}}}
   ],
-  "humor_style": {{
-    "description": "one cold factual sentence",
-    "confidence": 84,
-    "evidence": "48 teasing interactions detected, 0 dark humor"
+  "conversation_fingerprint": {{
+    "reactive": 9, "curiosity": 8, "humor": 4, "warmth": 6, "directness": 8, "verbosity": 2, "initiative": 3, "playfulness": 5
   }},
-  "conflict_style": {{
-    "description": "one cold factual sentence",
-    "confidence": 71,
-    "evidence": "12 conflict-adjacent exchanges observed"
+  "style_drift": {{
+    "first_third": "Formal", "middle_third": "Comfortable", "latest_third": "Playful",
+    "evidence_block": {{"confidence": 92, "detected": "Evolution across dataset", "examples": []}}
+  }},
+  "emotional_triggers": {{
+    "playful_when": ["Gaming", "Anime", "Memes"],
+    "serious_when": ["Work", "Family"],
+    "evidence_block": {{"confidence": 85, "detected": "Topic correlations", "examples": []}}
+  }},
+  "question_style": {{
+    "patterns": ["Uses clarification questions", "Rarely asks multiple questions"],
+    "often_replies_with": ["Really?", "Ohhh?", "How?"],
+    "evidence_block": {{"confidence": 96, "detected": "18 question exchanges", "examples": ["Is what?"]}}
+  }},
+  "conversation_energy": {{
+    "traits": ["Mostly reactive", "Frequently acknowledges", "Often mirrors user's topic"],
+    "evidence_block": {{"confidence": 91, "detected": "Overall pattern", "examples": []}}
+  }},
+  "conversation_role": {{
+    "primary": "Listener", "secondary": "Question Asker", "tertiary": "Learner",
+    "evidence_block": {{"confidence": 85, "detected": "Role dynamics", "examples": []}}
+  }},
+  "conversation_rhythm": {{
+    "typical_rhythm": ["User", "Short acknowledgement", "Clarification question", "Small opinion", "Ends"],
+    "evidence_block": {{"confidence": 88, "detected": "30 multi-turn exchanges", "examples": []}}
   }},
   "comfort_style": {{
-    "description": "one cold factual sentence",
-    "confidence": 90,
-    "evidence": "23 comfort scenarios found"
+    "observed_sequence": ["User sad", "Short validation", "Short reassurance", "Humor", "Topic shift"],
+    "evidence_block": {{"confidence": 90, "detected": "23 comfort conversations", "examples": []}}
   }}
 }}
 
@@ -100,23 +97,6 @@ Return ONLY JSON. No explanations.
         return json.loads(response.choices[0].message.content)
     except Exception as e:
         print(f"LLM inference failed: {e}")
-        # Fallback matches the new schema so downstream code never breaks
         return {
-            "emotional_response_patterns": [],
-            "humor_style": {
-                "description": "Could not infer.",
-                "confidence": 0,
-                "evidence": str(e),
-            },
-            "conflict_style": {
-                "description": "Could not infer.",
-                "confidence": 0,
-                "evidence": str(e),
-            },
-            "comfort_style": {
-                "description": "Could not infer.",
-                "confidence": 0,
-                "evidence": str(e),
-            },
             "error": str(e)
         }
